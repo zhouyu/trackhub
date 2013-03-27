@@ -1,28 +1,25 @@
+"""
+Root trackDb.txt for including multiple trackDb files
+"""
 import os
 from validate import ValidationError
 from base import HubComponent
 from genomes_file import GenomesFile
 from genome import Genome
-import track as _track
+import trackdb as _trackdb
 
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
-
-class TrackDb(HubComponent):
-    def __init__(self, tracks=None):
+class TrackDbRoot(HubComponent):
+    def __init__(self, trackdbs=None):
         """
-        Represents the file containing one or more Track objects (which each
-        represent a stanza).
+        Represents the file containing one or more include trackDb.* lines
         """
         HubComponent.__init__(self)
-        if tracks is None:
-            tracks = []
+        if trackdbs is None:
+            trackdbs = []
 
-        self._tracks = []
-        for track in tracks:
-            self.add_tracks(track)
+        self._trackdbs = []
+        for trackdb in trackdbs:
+            self.add_trackdbs(trackdb)
 
         self._local_fn = None
         self._remote_fn = None
@@ -87,7 +84,7 @@ class TrackDb(HubComponent):
     def remote_fn(self, fn):
         self._remote_fn = fn
 
-    def add_tracks(self, track):
+    def add_trackdbs(self, trackdb):
         """
         Add a track or iterable of tracks.
 
@@ -95,30 +92,23 @@ class TrackDb(HubComponent):
             Iterable of :class:`Track` objects, or a single :class:`Track`
             object.
         """
-        if isinstance(track, _track.BaseTrack):
-            self.add_child(track)
-            self._tracks.append(track)
+        if isinstance(trackdb, _trackdb.TrackDb):
+            self.add_child(trackdb)
+            self._trackdbs.append(trackdb)
         else:
-            for t in track:
+            for t in trackdb:
                 self.add_child(t)
-                self._tracks.append(t)
-
-    @property
-    def tracks(self):
-        return [i for i, level in self.leaves(_track.Track)]
-
-    def add_genome(self, genome):
-        self.add_parent(genome)
+                self._trackdbs.append(t)
 
     def __str__(self):
         s = []
-        for track in self._tracks:
-            s.append(str(track) + '\n')
+        for trackdb in self._trackdbs:
+            s.append('include %s' % os.path.basename(trackdb.local_fn))
         return '\n'.join(s)
 
     def validate(self):
         if len(self.children) == 0:
-            raise ValueError("No Track objects specified")
+            raise ValidationError("No TrackDb objects specified")
 
     def _render(self):
         dirname = os.path.dirname(self.local_fn)
