@@ -52,27 +52,35 @@ class GenomeHub(object):
         create a trackdb with given name for this genome
         """
         trackdb = TrackDb()
-        trackdb.local_fn = '%s/trackDb.%s.txt' % (self.name, name)
+        trackdb.local_fn = os.path.join(self.name, 'trackDb.%s.txt' % name)
+        datadir = os.path.join(self.name, name) 
+        if not os.path.exists(datadir):
+            os.mkdir(datadir)
+            
         self._dbroot.add_trackdbs(trackdb)
         return trackdb
-    
     
 
 class ExpTrack(object):
     """
-    Composite tracks for one type of experiments (ChIP/CLIP/Gro-seq, etc) 
+    Composite tracks for multiple samples from one type of experiments, such as
+    ChIP/CLIP/Gro-seq, etc.
     """
+    COLORS = ('0,0,0', '255,0,0', '0,255,0', '0,0,255', '255,153,0')
     def __init__(self, name, short_label, 
-        strand2color = {'fwd': '255,0,0', 'rev': '0,0,255'}):
+        strand2color = {'fwd': '255,0,0', 'rev': '0,0,255'},
+        priority_init=0, priority_step=0.01):
         self.name = name
         self.short_label = short_label
         self.cpt = CompositeTrack(name=self.name,
             short_label=self.short_label,
             long_label="%s composite tracks" % self.short_label,
-            tracktype="bigBed 3")
+            tracktype="bigBed 3") # bare-bone format
         self.cpt.add_params(dragAndDrop='subtracks', visibility='full')
         self.strand2color = strand2color
-    
+        self.priority = priority_init
+        self.priority_step = priority_step
+        
     @property
     def track(self):
         return self.cpt
@@ -85,15 +93,17 @@ class ExpTrack(object):
     def iter_samples(self, samples, stranded=False):
         for sample in samples:
             if not stranded:
-                yield (sample, '')
+                yield (sample, '.')
             else:
                 for strand in sorted(self.strand2color):
                     yield (sample, strand)
     
-    def samples2view(self, samples, view, stranded=False, template="%s_tag"):
+    def samples2view(self, samples, view, stranded=False, template="%s_tag", 
+        setColor=False, colorByStrand=True):
         self.cpt.add_view(view)
         tracktype = view.tracktype
         viewtype = view.view
+
         for sample, strand in self.iter_samples(samples, stranded):
             samplename = sample
             if stranded:
@@ -105,8 +115,28 @@ class ExpTrack(object):
                 url=os.path.join(self.name, basename+'.'+tracktype),
                 shortLabel='%s %s' % (samplename, viewtype), 
                 longLabel="%s %s" % (samplename, viewtype),
+                priority=self.priority,
                 )
-            if stranded:
-                track.add_params(color=self.strand2color[strand])
+            if setColor:
+                if colorByStrand and strand in self.strand2color:
+                    track.add_params(color=self.strand2color[strand])
+                else:
+                    idx = samples.index(sample) % len(ExpTrack.COLORS)
+                    track.add_params(color=ExpTrack.COLORS[idx])
+
             view.add_tracks(track)
-            
+            self.priority += self.priority_step
+    
+    def add_samples(self, samples, stranded=True):
+        """(ExpTrack, list, boolean) -> NoneType
+        Create composite track of 3 views on given samples 
+        """
+        readview = self.create_view('READ', "bam", visibility="squish")
+        self.samples2view(samples, readview, template="%s_tag", setColor=False)
+        sigview = self.create_view('SIG', "bigWig", visibility="full")
+        self.samples2view(samples, sigview, template="%s", setColor=True, 
+                          stranded=stranded, colorByStrand=False)
+        normview = self.create_view('SIGnorm', "bigWig", visibility="full")
+        self.samples2view(samples, normview, template="%s_norm", setColor=True, 
+                          stranded=stranded, colorByStrand=False)
+        
