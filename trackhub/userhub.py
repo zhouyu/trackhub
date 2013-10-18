@@ -102,12 +102,24 @@ class ExpTrack(object):
                 for strand in sorted(self.strand2color):
                     yield (sample, strand)
 
+    def tracktype2suffix(self, tracktype):
+        """Determine track data file suffix from view tracktype"""
+        if tracktype.startswith("bigBed"):
+            return "bigBed"
+        elif tracktype.startswith("bam"):
+            return "bam"
+        elif tracktype.startswith("bigWig"):
+            return "bigWig"
+        else:
+            return tracktype
+
     def samples2view(self, samples, view, stranded=False, template="%s_tag",
         setColor=False, colorByStrand=True):
         self.cpt.add_view(view)
         tracktype = view.tracktype
         viewtype = view.view
 
+        suffix = self.tracktype2suffix(tracktype)
         for sample, strand in self.iter_samples(samples, stranded):
             samplename = sample
             if stranded:
@@ -118,7 +130,7 @@ class ExpTrack(object):
             track = Track(
                 tracktype=tracktype,
                 name='%s%s%s' % (self.name, viewtype, samplename),
-                url=os.path.join(self.name, basename+'.'+tracktype),
+                url=os.path.join(self.name, basename+'.'+suffix),
                 shortLabel='%s %s' % (samplename, viewtype),
                 longLabel="%s %s" % (samplename, viewtype),
                 priority=self.priority,
