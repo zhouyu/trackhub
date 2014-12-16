@@ -136,6 +136,12 @@ class ExpTrack(object):
                 priority=self.priority,
                 )
             sys.stderr.write(str(track)+"\n")
+            if stranded and tracktype == "bigWig" and strand in ("-", "rev"):
+                track.add_params(negateValues="on")
+
+            if tracktype == "bigWig":
+                track.add_params(maxHeightPixels="100:50:8")
+
             if setColor:
                 if colorByStrand and strand in self.strand2color:
                     track.add_params(color=self.strand2color[strand])

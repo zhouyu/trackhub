@@ -304,6 +304,11 @@ track_typespecific_fields = {
             "on|off; draw y=0.0 line (Default: off)",
             set(['on', 'off'])),
 
+        Parameter(
+            'negateValues',
+            "on|off; Negate the values in the wiggle (Default: off)",
+            set(['on', 'off'])),
+
     ]),
 
     'bam':  OrderedDict((i.param, i) for i in [
